@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetHistory</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#e50914">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NetHistory">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --bg2: #111111;
+    --bg3: #1a1a1a;
+    --border: #2a2a2a;
+    --red: #e50914;
+    --red2: #b00710;
+    --text: #f0f0f0;
+    --muted: #888;
+    --muted2: #555;
+    --card: #161616;
+    --hover: #1e1e1e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(180deg, #000 0%, transparent 100%);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    background: rgba(10,10,10,0.92);
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: var(--red);
+    letter-spacing: 2px;
+    white-space: nowrap;
+  }
+  .logo span { color: var(--text); }
+
+  .search-wrap {
+    flex: 1;
+    max-width: 400px;
+    position: relative;
+  }
+  .search-wrap input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 16px 9px 38px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border 0.2s;
+  }
+  .search-wrap input:focus { border-color: var(--red); }
+  .search-wrap svg {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+  }
+
+  .header-stats {
+    margin-left: auto;
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+  .stat { text-align: center; }
+  .stat-n {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: var(--red);
+    line-height: 1;
+  }
+  .stat-l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    padding: 0 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .tab {
+    padding: 14px 24px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    user-select: none;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); border-bottom-color: var(--red); }
+  .tab-count {
+    display: inline-block;
+    background: var(--bg3);
+    color: var(--muted);
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-left: 6px;
+    font-weight: 600;
+  }
+  .tab.active .tab-count { background: var(--red); color: white; }
+
+  /* ── FILTERS ── */
+  .filters {
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .filters label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .filter-btn {
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { border-color: var(--muted); color: var(--text); }
+  .filter-btn.active { background: var(--red); border-color: var(--red); color: white; }
+
+  select.filter-select {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* ── MAIN ── */
+  main { padding: 24px 32px; }
+
+  /* ── UPLOAD ZONE ── */
+  #upload-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    gap: 20px;
+  }
+  .drop-area {
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 60px 80px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    background: var(--bg2);
+    max-width: 480px;
+    width: 100%;
+  }
+  .drop-area:hover, .drop-area.drag-over {
+    border-color: var(--red);
+    background: rgba(229,9,20,0.04);
+  }
+  .drop-icon { font-size: 48px; margin-bottom: 16px; }
+  .drop-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .drop-sub { color: var(--muted); font-size: 13px; line-height: 1.6; }
+  .drop-area input[type=file] { display: none; }
+  .btn-import {
+    background: var(--red);
+    color: white;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 10px;
+  }
+  .btn-import:hover { background: var(--red2); }
+
+  .how-to {
+    max-width: 480px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    width: 100%;
+  }
+  .how-to h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; }
+  .how-to ol { padding-left: 16px; }
+  .how-to li { color: var(--muted); font-size: 12px; line-height: 2; }
+  .how-to a { color: var(--red); text-decoration: none; }
+  .how-to a:hover { text-decoration: underline; }
+
+  /* ── CONTENT ── */
+  #content { display: none; }
+
+  /* ── GRID SÉRIES ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid transparent;
+    position: relative;
+  }
+  .card:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    border-color: var(--border);
+  }
+
+  .card-poster {
+    width: 100%;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    display: block;
+    background: var(--bg3);
+  }
+  .card-poster-placeholder {
+    width: 100%;
+    aspect-ratio: 2/3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1a1a1a 0%, #222 100%);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    letter-spacing: 1px;
+    color: var(--muted2);
+    text-align: center;
+    padding: 12px;
+    line-height: 1.3;
+  }
+
+  .card-info {
+    padding: 10px 12px 12px;
+  }
+  .card-title {
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.3;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge-ep { background: rgba(229,9,20,0.15); color: var(--red); }
+  .badge-s { background: rgba(255,255,255,0.07); color: var(--muted); }
+  .badge-date { background: transparent; color: var(--muted2); font-size: 10px; }
+
+  /* ── LIST VIEW ── */
+  .list-view { display: flex; flex-direction: column; gap: 4px; }
+
+  .list-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: background 0.15s;
+    cursor: pointer;
+  }
+  .list-item:hover { background: var(--hover); border-color: var(--border); }
+
+  .list-title { font-size: 14px; font-weight: 500; }
+  .list-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .list-badges { display: flex; gap: 6px; }
+  .list-date { font-size: 11px; color: var(--muted2); text-align: right; white-space: nowrap; }
+
+  /* ── TIMELINE ── */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .year-block { margin-bottom: 32px; }
+  .year-header {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    color: var(--red);
+    letter-spacing: 3px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  .year-ep-count { font-size: 16px; color: var(--muted); }
+
+  /* ── STATS VIEW ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+  }
+  .stat-card-n {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    color: var(--red);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-card-l { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .stat-card-sub { font-size: 11px; color: var(--muted2); margin-top: 4px; }
+
+  .top-list { display: flex; flex-direction: column; gap: 6px; }
+  .top-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--card);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .top-rank {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    color: var(--muted2);
+    width: 24px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .top-rank.gold { color: #f5c518; }
+  .top-rank.silver { color: #aaa; }
+  .top-rank.bronze { color: #cd7f32; }
+  .top-name { flex: 1; font-size: 13px; font-weight: 500; }
+  .top-bar-wrap { flex: 1; max-width: 160px; }
+  .top-bar-bg { background: var(--bg3); border-radius: 3px; height: 5px; overflow: hidden; }
+  .top-bar-fill { background: var(--red); height: 5px; border-radius: 3px; transition: width 0.6s ease; }
+  .top-count { font-size: 12px; color: var(--muted); width: 50px; text-align: right; }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+    color: var(--text);
+  }
+
+  .chart-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px 10px;
+    margin-bottom: 24px;
+  }
+  .bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 100px;
+    margin-top: 12px;
+  }
+  .bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 0; }
+  .bar-fill {
+    background: linear-gradient(180deg, var(--red) 0%, var(--red2) 100%);
+    border-radius: 3px 3px 0 0;
+    width: 100%;
+    min-height: 2px;
+    transition: height 0.5s ease;
+    position: relative;
+  }
+  .bar-fill:hover::after {
+    content: attr(data-count);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--red);
+    color: white;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    margin-bottom: 4px;
+  }
+  .bar-label { font-size: 9px; color: var(--muted2); margin-top: 4px; transform: rotate(-45deg); white-space: nowrap; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    max-width: 560px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .modal-header {
+    display: flex;
+    gap: 16px;
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0;
+    background: var(--bg2);
+  }
+  .modal-poster {
+    width: 70px;
+    height: 105px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex-shrink: 0;
+    background: var(--bg3);
+  }
+  .modal-poster-ph {
+    width: 70px;
+    height: 105px;
+    background: var(--bg3);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+  }
+  .modal-title-wrap { flex: 1; min-width: 0; }
+  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; margin-bottom: 6px; }
+  .modal-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .modal-overview { font-size: 12px; color: var(--muted); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px;
+    background: var(--bg3); border: none; color: var(--muted);
+    width: 28px; height: 28px; border-radius: 50%;
+    cursor: pointer; font-size: 16px; display: flex;
+    align-items: center; justify-content: center;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 16px 20px; }
+  .ep-season { margin-bottom: 16px; }
+  .ep-season-title {
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 8px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ep-list { display: flex; flex-direction: column; gap: 4px; }
+  .ep-row {
+    display: flex; justify-content: space-between;
+    padding: 6px 10px; border-radius: 6px;
+    font-size: 12px; transition: background 0.15s;
+  }
+  .ep-row:hover { background: var(--bg3); }
+  .ep-name { color: var(--text); }
+  .ep-date { color: var(--muted2); font-size: 11px; }
+
+  /* ── VIEW TOGGLE ── */
+  .view-toggle { display: flex; gap: 4px; margin-left: auto; }
+  .view-btn {
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--muted); padding: 5px 10px; border-radius: 5px;
+    cursor: pointer; font-size: 12px; transition: all 0.15s;
+  }
+  .view-btn.active { background: var(--red); border-color: var(--red); color: white; }
+
+  /* ── LOADING ── */
+  .loading { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; padding: 4px 0; }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--red);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 600px) {
+    header { padding: 14px 16px; gap: 10px; }
+    main { padding: 16px; }
+    .tabs { padding: 0 16px; overflow-x: auto; }
+    .filters { padding: 10px 16px; }
+    .header-stats { display: none; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">NET<span>HISTORY</span></div>
+  <div class="search-wrap" id="search-wrap" style="display:none">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+    <input type="text" id="search" placeholder="Rechercher…">
+  </div>
+  <div class="header-stats" id="header-stats" style="display:none">
+    <div class="stat"><div class="stat-n" id="stat-total">—</div><div class="stat-l">épisodes</div></div>
+    <div class="stat"><div class="stat-n" id="stat-series">—</div><div class="stat-l">séries</div></div>
+    <div class="stat"><div class="stat-n" id="stat-films">—</div><div class="stat-l">films</div></div>
+    <div class="stat"><div class="stat-n" id="stat-years">—</div><div class="stat-l">ans</div></div>
+  </div>
+</header>
+
+<div class="tabs" id="tabs" style="display:none">
+  <div class="tab active" data-tab="series">Séries <span class="tab-count" id="tc-series">0</span></div>
+  <div class="tab" data-tab="films">Films <span class="tab-count" id="tc-films">0</span></div>
+  <div class="tab" data-tab="timeline">Chronologie</div>
+  <div class="tab" data-tab="stats">Statistiques</div>
+</div>
+
+<div class="filters" id="filters" style="display:none">
+  <label>Trier :</label>
+  <button class="filter-btn active" data-sort="last">Récemment vu</button>
+  <button class="filter-btn" data-sort="alpha">A → Z</button>
+  <button class="filter-btn" data-sort="count">+ d'épisodes</button>
+  <select class="filter-select" id="year-filter">
+    <option value="">Toutes les années</option>
+  </select>
+  <div class="view-toggle" id="view-toggle">
+    <button class="view-btn active" data-view="grid" title="Grille">⊞</button>
+    <button class="view-btn" data-view="list" title="Liste">☰</button>
+  </div>
+</div>
+
+<main>
+  <div id="upload-zone">
+    <label class="drop-area" id="drop-area">
+      <div class="drop-icon">🎬</div>
+      <div class="drop-title">Déposez votre CSV</div>
+      <div class="drop-sub">Glissez-déposez le fichier<br><strong>NetflixViewingHistory.csv</strong><br>ou cliquez pour parcourir</div>
+      <button class="btn-import" onclick="event.preventDefault(); document.getElementById('file-input').click()">Choisir un fichier</button>
+      <input type="file" id="file-input" accept=".csv">
+    </label>
+    <div class="how-to">
+      <h3>📋 Comment télécharger votre historique Netflix ?</h3>
+      <ol>
+        <li>Connectez-vous sur <a href="https://www.netflix.com" target="_blank">netflix.com</a></li>
+        <li>Menu → Compte → Profil → Accès aux données</li>
+        <li>Télécharger → Historique de visionnage</li>
+        <li>Attendez l'email, puis importez ici le CSV</li>
+      </ol>
+    </div>
+  </div>
+
+  <div id="content">
+    <div id="tab-series" class="tab-content"></div>
+    <div id="tab-films" class="tab-content" style="display:none"></div>
+    <div id="tab-timeline" class="tab-content" style="display:none"></div>
+    <div id="tab-stats" class="tab-content" style="display:none"></div>
+  </div>
+</main>
+
+<!-- Modal détail -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <button class="modal-close" id="modal-close">✕</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────
+let allData = [];      // {title, date, year, month}
+let seriesMap = {};    // {serieTitle: {episodes, seasons, lastDate, firstDate}}
+let filmsList = [];
+let currentTab = 'series';
+let currentSort = 'last';
+let currentYear = '';
+let currentView = 'grid';
+let tmdbCache = {};
+const TMDB_KEY = '8265bd1679663a7ea12ac168da84d2e8'; // clé publique TMDB
+
+// ── PARSE CSV ─────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const results = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    // parse quoted CSV
+    const m = line.match(/^"(.+)","(.+)"$/) || line.match(/^(.+),(.+)$/);
+    if (!m) continue;
+    const rawTitle = m[1].replace(/^"|"$/g, '');
+    const rawDate  = m[2].replace(/^"|"$/g, '');
+    const [mo, da, yr] = rawDate.split('/').map(Number);
+    const fullYear = yr < 100 ? 2000 + yr : yr;
+    results.push({
+      raw: rawTitle,
+      date: new Date(fullYear, mo - 1, da),
+      year: fullYear,
+      month: mo
+    });
+  }
+  return results;
+}
+
+function parseTitle(raw) {
+  // Format: "Série: Saison N: Episode" ou "Série: Episode" ou "Film seul"
+  const parts = raw.split(':').map(s => s.trim());
+  if (parts.length === 1) return { type: 'film', serie: raw, season: null, episode: raw };
+  
+  // Détecte "Mini-série" ou "Saison N"
+  const hasSeason = parts.some(p => /^(saison|season|mini-série|mini-serie|partie|part)\s/i.test(p));
+  
+  if (parts.length >= 2) {
+    // Essai : le premier part est toujours le nom de la série
+    const serie = parts[0];
+    
+    // Cherche saison
+    let season = null;
+    for (const p of parts) {
+      if (/^(saison|season|mini-série|mini-serie|série|partie|part)\s/i.test(p)) {
+        season = p;
+        break;
+      }
+    }
+    
+    const episode = parts[parts.length - 1];
+    
+    // Heuristique "film seul" : pas de détecteur de saison et 2 parties max avec 2e ≠ épisode
+    const isLikelyFilm = parts.length === 1 || 
+      (!hasSeason && parts.length === 2 && !/^(épisode|episode|ep\.|ep\s)/i.test(parts[1]));
+    
+    return {
+      type: isLikelyFilm ? 'film' : 'serie',
+      serie,
+      season,
+      episode,
+      raw
+    };
+  }
+  return { type: 'film', serie: raw, season: null, episode: raw };
+}
+
+// ── PROCESS ───────────────────────────────────────────
+function processData(raw) {
+  allData = raw;
+  seriesMap = {};
+  filmsList = [];
+
+  for (const item of raw) {
+    const p = parseTitle(item.raw);
+    if (p.type === 'film') {
+      filmsList.push({ ...item, title: p.serie });
+    } else {
+      if (!seriesMap[p.serie]) {
+        seriesMap[p.serie] = { episodes: [], seasons: new Set(), lastDate: item.date, firstDate: item.date };
+      }
+      const s = seriesMap[p.serie];
+      s.episodes.push({ ...item, season: p.season, episode: p.episode });
+      if (p.season) s.seasons.add(p.season);
+      if (item.date > s.lastDate) s.lastDate = item.date;
+      if (item.date < s.firstDate) s.firstDate = item.date;
+    }
+  }
+
+  // Remove films that have episodes elsewhere
+  const serieNames = new Set(Object.keys(seriesMap));
+  filmsList = filmsList.filter(f => !serieNames.has(f.title));
+
+  updateStats();
+  renderYearFilter();
+  showContent();
+  renderTab('series');
+}
+
+function updateStats() {
+  const years = new Set(allData.map(d => d.year));
+  document.getElementById('stat-total').textContent = allData.length.toLocaleString('fr');
+  document.getElementById('stat-series').textContent = Object.keys(seriesMap).length.toLocaleString('fr');
+  document.getElementById('stat-films').textContent = filmsList.length.toLocaleString('fr');
+  document.getElementById('stat-years').textContent = years.size;
+  document.getElementById('tc-series').textContent = Object.keys(seriesMap).length;
+  document.getElementById('tc-films').textContent = filmsList.length;
+}
+
+function renderYearFilter() {
+  const years = [...new Set(allData.map(d => d.year))].sort((a,b) => b - a);
+  const sel = document.getElementById('year-filter');
+  sel.innerHTML = '<option value="">Toutes les années</option>';
+  years.forEach(y => { const o = document.createElement('option'); o.value = y; o.textContent = y; sel.appendChild(o); });
+}
+
+function showContent() {
+  document.getElementById('upload-zone').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+  document.getElementById('tabs').style.display = 'flex';
+  document.getElementById('filters').style.display = 'flex';
+  document.getElementById('header-stats').style.display = 'flex';
+  document.getElementById('search-wrap').style.display = 'block';
+}
+
+// ── RENDER ────────────────────────────────────────────
+function getFilteredSeries() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let list = Object.entries(seriesMap);
+  
+  if (q) list = list.filter(([name]) => name.toLowerCase().includes(q));
+  if (currentYear) list = list.filter(([, s]) => s.episodes.some(e => e.year == currentYear));
+  
+  if (currentSort === 'last') list.sort((a,b) => b[1].lastDate - a[1].lastDate);
+  else if (currentSort === 'alpha') list.sort((a,b) => a[0].localeCompare(b[0], 'fr'));
+  else list.sort((a,b) => b[1].episodes.length - a[1].episodes.length);
+  
+  return list;
+}
+
+function getFilteredFilms() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let list = [...filmsList];
+  
+  if (q) list = list.filter(f => f.title.toLowerCase().includes(q));
+  if (currentYear) list = list.filter(f => f.year == currentYear);
+  
+  if (currentSort === 'last') list.sort((a,b) => b.date - a.date);
+  else if (currentSort === 'alpha') list.sort((a,b) => a.title.localeCompare(b.title, 'fr'));
+  
+  return list;
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function renderTab(tab) {
+  if (tab) currentTab = tab;
+  // Hide filters for timeline/stats
+  document.getElementById('filters').style.display = (currentTab === 'stats' || currentTab === 'timeline') ? 'none' : 'flex';
+  
+  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+  document.getElementById('tab-' + currentTab).style.display = 'block';
+  
+  if (currentTab === 'series') renderSeries();
+  else if (currentTab === 'films') renderFilms();
+  else if (currentTab === 'timeline') renderTimeline();
+  else if (currentTab === 'stats') renderStats();
+}
+
+function renderSeries() {
+  const list = getFilteredSeries();
+  const container = document.getElementById('tab-series');
+
+  if (!list.length) { container.innerHTML = '<div class="empty">Aucune série trouvée</div>'; return; }
+
+  if (currentView === 'grid') {
+    container.innerHTML = `<div class="grid">${list.map(([name, s]) => cardHTML(name, s)).join('')}</div>`;
+  } else {
+    container.innerHTML = `<div class="list-view">${list.map(([name, s]) => listItemHTML(name, s)).join('')}</div>`;
+  }
+
+  // lazy TMDB posters
+  container.querySelectorAll('[data-tmdb]').forEach(el => loadPoster(el, el.dataset.tmdb, el.dataset.type || 'tv'));
+}
+
+function cardHTML(name, s) {
+  const epCount = s.episodes.length;
+  const sCount  = s.seasons.size;
+  const last    = formatDate(s.lastDate);
+  return `<div class="card" onclick="openModal('${escapeAttr(name)}')">
+    <div class="card-poster-placeholder" data-tmdb="${escapeAttr(name)}" data-type="tv" id="poster-${hashStr(name)}">${name.substring(0,30)}</div>
+    <div class="card-info">
+      <div class="card-title" title="${escapeAttr(name)}">${escapeHtml(name)}</div>
+      <div class="card-meta">
+        <span class="badge badge-ep">${epCount} ép.</span>
+        ${sCount > 0 ? `<span class="badge badge-s">${sCount} saison${sCount>1?'s':''}</span>` : ''}
+        <span class="badge badge-date">${last}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function listItemHTML(name, s) {
+  const epCount = s.episodes.length;
+  const sCount  = s.seasons.size;
+  const last    = formatDate(s.lastDate);
+  return `<div class="list-item" onclick="openModal('${escapeAttr(name)}')">
+    <div>
+      <div class="list-title">${escapeHtml(name)}</div>
+      <div class="list-sub">${sCount > 0 ? `${sCount} saison${sCount>1?'s':''} · ` : ''}Vu depuis ${formatDate(s.firstDate)}</div>
+    </div>
+    <div class="list-badges">
+      <span class="badge badge-ep">${epCount} ép.</span>
+    </div>
+    <div class="list-date">${last}</div>
+  </div>`;
+}
+
+function renderFilms() {
+  const list = getFilteredFilms();
+  const container = document.getElementById('tab-films');
+  if (!list.length) { container.innerHTML = '<div class="empty">Aucun film trouvé</div>'; return; }
+  
+  if (currentView === 'grid') {
+    container.innerHTML = `<div class="grid">${list.map(f => `
+      <div class="card" onclick="openFilmModal('${escapeAttr(f.title)}', '${escapeAttr(formatDate(f.date))}')">
+        <div class="card-poster-placeholder" data-tmdb="${escapeAttr(f.title)}" data-type="movie" id="poster-${hashStr(f.title)}">${f.title.substring(0,30)}</div>
+        <div class="card-info">
+          <div class="card-title" title="${escapeAttr(f.title)}">${escapeHtml(f.title)}</div>
+          <div class="card-meta"><span class="badge badge-date">${formatDate(f.date)}</span></div>
+        </div>
+      </div>`).join('')}</div>`;
+  } else {
+    container.innerHTML = `<div class="list-view">${list.map(f => `
+      <div class="list-item">
+        <div><div class="list-title">${escapeHtml(f.title)}</div></div>
+        <div></div>
+        <div class="list-date">${formatDate(f.date)}</div>
+      </div>`).join('')}</div>`;
+  }
+  container.querySelectorAll('[data-tmdb]').forEach(el => loadPoster(el, el.dataset.tmdb, el.dataset.type || 'movie'));
+}
+
+function renderTimeline() {
+  const container = document.getElementById('tab-timeline');
+  const byYear = {};
+  for (const item of allData) {
+    if (!byYear[item.year]) byYear[item.year] = [];
+    byYear[item.year].push(item);
+  }
+  const years = Object.keys(byYear).sort((a,b) => b - a);
+  
+  container.innerHTML = `<div class="timeline">${years.map(y => {
+    const items = byYear[y];
+    // group by month
+    const byMonth = {};
+    for (const it of items) {
+      if (!byMonth[it.month]) byMonth[it.month] = 0;
+      byMonth[it.month]++;
+    }
+    return `<div class="year-block">
+      <div class="year-header">${y} <span class="year-ep-count">${items.length} visions</span></div>
+      ${renderMonthBars(byMonth)}
+      <div class="list-view" style="margin-top:16px">
+        ${items.slice(0,10).map(it => `
+          <div class="list-item">
+            <div class="list-title">${escapeHtml(it.raw)}</div>
+            <div></div>
+            <div class="list-date">${formatDate(it.date)}</div>
+          </div>`).join('')}
+        ${items.length > 10 ? `<div style="padding:10px 16px;color:var(--muted);font-size:12px">… et ${items.length - 10} autres visions</div>` : ''}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderMonthBars(byMonth) {
+  const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  const max = Math.max(...Object.values(byMonth), 1);
+  return `<div class="chart-wrap">
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Visions par mois</div>
+    <div class="bar-chart">
+      ${months.map((m, i) => {
+        const count = byMonth[i+1] || 0;
+        const h = Math.round((count / max) * 90);
+        return `<div class="bar-col">
+          <div class="bar-fill" style="height:${h}px" data-count="${count}"></div>
+          <div class="bar-label">${m}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function renderStats() {
+  const container = document.getElementById('tab-stats');
+
+  const totalEp   = allData.length;
+  const nSeries   = Object.keys(seriesMap).length;
+  const nFilms    = filmsList.length;
+  const years     = new Set(allData.map(d => d.year));
+  const firstDate = new Date(Math.min(...allData.map(d => d.date)));
+  const lastDate  = new Date(Math.max(...allData.map(d => d.date)));
+
+  // Top séries
+  const topSeries = Object.entries(seriesMap)
+    .sort((a,b) => b[1].episodes.length - a[1].episodes.length)
+    .slice(0, 10);
+  const maxEp = topSeries[0]?.[1].episodes.length || 1;
+
+  // By year
+  const byYear = {};
+  for (const d of allData) { byYear[d.year] = (byYear[d.year]||0) + 1; }
+  const sortedYears = Object.keys(byYear).sort((a,b) => a - b);
+  const maxY = Math.max(...Object.values(byYear), 1);
+
+  container.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-card-n">${totalEp.toLocaleString('fr')}</div><div class="stat-card-l">Épisodes & films vus</div><div class="stat-card-sub">Depuis ${formatDate(firstDate)}</div></div>
+      <div class="stat-card"><div class="stat-card-n">${nSeries}</div><div class="stat-card-l">Séries regardées</div></div>
+      <div class="stat-card"><div class="stat-card-n">${nFilms}</div><div class="stat-card-l">Films regardés</div></div>
+      <div class="stat-card"><div class="stat-card-n">${years.size}</div><div class="stat-card-l">Années d'historique</div><div class="stat-card-sub">${[...years].sort()[0]} → ${[...years].sort().pop()}</div></div>
+      <div class="stat-card"><div class="stat-card-n">${Math.round(totalEp / years.size)}</div><div class="stat-card-l">Visions / an en moyenne</div></div>
+      <div class="stat-card"><div class="stat-card-n">${topSeries[0]?.[0].split(':')[0] || '—'}</div><div class="stat-card-l">Série la + regardée</div><div class="stat-card-sub">${topSeries[0]?.[1].episodes.length || 0} épisodes</div></div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="section-title">Activité par année</div>
+      <div class="bar-chart" style="height:120px">
+        ${sortedYears.map(y => {
+          const h = Math.round((byYear[y] / maxY) * 110);
+          return `<div class="bar-col">
+            <div class="bar-fill" style="height:${h}px" data-count="${byYear[y]}"></div>
+            <div class="bar-label">${y}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="section-title">Top 10 séries</div>
+    <div class="top-list">
+      ${topSeries.map(([name, s], i) => `
+        <div class="top-item">
+          <div class="top-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${i+1}</div>
+          <div class="top-name">${escapeHtml(name)}</div>
+          <div class="top-bar-wrap"><div class="top-bar-bg"><div class="top-bar-fill" style="width:${Math.round(s.episodes.length/maxEp*100)}%"></div></div></div>
+          <div class="top-count">${s.episodes.length} ép.</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ── MODAL ─────────────────────────────────────────────
+function openModal(name) {
+  const s = seriesMap[name];
+  if (!s) return;
+
+  // group by season
+  const seasons = {};
+  for (const ep of s.episodes) {
+    const key = ep.season || 'Sans saison';
+    if (!seasons[key]) seasons[key] = [];
+    seasons[key].push(ep);
+  }
+
+  const posterId = 'mp-' + hashStr(name);
+  let html = `<div class="modal-header">
+    <div class="modal-poster-ph" id="${posterId}" data-tmdb="${escapeAttr(name)}" data-type="tv">📺</div>
+    <div class="modal-title-wrap">
+      <div class="modal-title">${escapeHtml(name)}</div>
+      <div class="modal-badges">
+        <span class="badge badge-ep">${s.episodes.length} épisodes</span>
+        <span class="badge badge-s">${s.seasons.size} saison${s.seasons.size>1?'s':''}</span>
+      </div>
+      <div class="modal-overview" id="tmdb-overview-${hashStr(name)}"><span class="loading"><span class="spinner"></span>Chargement…</span></div>
+    </div>
+  </div>
+  <div class="modal-body">`;
+
+  const orderedSeasons = Object.keys(seasons).sort((a,b) => {
+    const na = parseInt(a.match(/\d+/)?.[0] || 0);
+    const nb = parseInt(b.match(/\d+/)?.[0] || 0);
+    return na - nb;
+  });
+
+  for (const season of orderedSeasons) {
+    const eps = seasons[season].sort((a,b) => a.episode.localeCompare(b.episode, 'fr'));
+    html += `<div class="ep-season">
+      <div class="ep-season-title">${escapeHtml(season)}</div>
+      <div class="ep-list">
+        ${eps.map(ep => `<div class="ep-row">
+          <span class="ep-name">${escapeHtml(ep.episode)}</span>
+          <span class="ep-date">${formatDate(ep.date)}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  html += '</div>';
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('open');
+
+  // Load poster & overview from TMDB
+  fetchTMDB(name, 'tv').then(data => {
+    if (!data) return;
+    const ph = document.getElementById(posterId);
+    if (ph && data.poster_path) {
+      ph.outerHTML = `<img class="modal-poster" src="https://image.tmdb.org/t/p/w154${data.poster_path}" alt="${escapeAttr(name)}">`;
+    }
+    const ov = document.getElementById('tmdb-overview-' + hashStr(name));
+    if (ov) ov.textContent = data.overview || '';
+  });
+}
+
+function openFilmModal(title, date) {
+  const posterId = 'mp-' + hashStr(title);
+  const html = `<div class="modal-header">
+    <div class="modal-poster-ph" id="${posterId}">🎬</div>
+    <div class="modal-title-wrap">
+      <div class="modal-title">${escapeHtml(title)}</div>
+      <div class="modal-badges"><span class="badge badge-date">Vu le ${date}</span></div>
+      <div class="modal-overview" id="tmdb-overview-${hashStr(title)}"><span class="loading"><span class="spinner"></span>Chargement…</span></div>
+    </div>
+  </div>
+  <div class="modal-body"><p style="color:var(--muted);font-size:13px">Film • Vu le ${date}</p></div>`;
+  
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('open');
+
+  fetchTMDB(title, 'movie').then(data => {
+    if (!data) return;
+    const ph = document.getElementById(posterId);
+    if (ph && data.poster_path) {
+      ph.outerHTML = `<img class="modal-poster" src="https://image.tmdb.org/t/p/w154${data.poster_path}" alt="${escapeAttr(title)}">`;
+    }
+    const ov = document.getElementById('tmdb-overview-' + hashStr(title));
+    if (ov) ov.textContent = data.overview || 'Aucun synopsis disponible.';
+  });
+}
+
+document.getElementById('modal-close').onclick = () => document.getElementById('modal-overlay').classList.remove('open');
+document.getElementById('modal-overlay').onclick = e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); };
+
+// ── TMDB ──────────────────────────────────────────────
+async function fetchTMDB(title, type) {
+  const key = type + ':' + title;
+  if (tmdbCache[key] !== undefined) return tmdbCache[key];
+  
+  // Clean title for search
+  const clean = title.replace(/\s*:\s*saison\s*\d+.*/i, '').replace(/\s*\(.*\)$/, '').trim();
+  
+  try {
+    const url = `https://api.themoviedb.org/3/search/${type}?api_key=${TMDB_KEY}&query=${encodeURIComponent(clean)}&language=fr-FR`;
+    const r = await fetch(url);
+    const d = await r.json();
+    const result = d.results?.[0] || null;
+    tmdbCache[key] = result;
+    return result;
+  } catch {
+    tmdbCache[key] = null;
+    return null;
+  }
+}
+
+async function loadPoster(el, name, type) {
+  const data = await fetchTMDB(name, type);
+  if (!data?.poster_path) return;
+  const img = document.createElement('img');
+  img.className = 'card-poster';
+  img.src = `https://image.tmdb.org/t/p/w300${data.poster_path}`;
+  img.alt = name;
+  img.loading = 'lazy';
+  img.onload = () => el.replaceWith(img);
+}
+
+// ── UPLOAD ────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) readFile(f);
+});
+
+const dropArea = document.getElementById('drop-area');
+dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('drag-over'); });
+dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
+dropArea.addEventListener('drop', e => {
+  e.preventDefault();
+  dropArea.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) readFile(f);
+});
+
+function readFile(f) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const parsed = parseCSV(e.target.result);
+    if (parsed.length > 0) processData(parsed);
+  };
+  reader.readAsText(f, 'UTF-8');
+}
+
+// ── EVENTS ────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    renderTab(t.dataset.tab);
+  });
+});
+
+document.querySelectorAll('[data-sort]').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('[data-sort]').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    currentSort = b.dataset.sort;
+    renderTab();
+  });
+});
+
+document.querySelectorAll('[data-view]').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('[data-view]').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    currentView = b.dataset.view;
+    renderTab();
+  });
+});
+
+document.getElementById('year-filter').addEventListener('change', e => {
+  currentYear = e.target.value;
+  renderTab();
+});
+
+let searchTimer;
+document.getElementById('search').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(renderTab, 200);
+});
+
+// ── UTILS ─────────────────────────────────────────────
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escapeAttr(s) {
+  return s.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+}
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return Math.abs(h).toString(36);
+}
+
+// ── SERVICE WORKER ────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(r => console.log('SW registered:', r.scope))
+      .catch(e => console.warn('SW error:', e));
+  });
+}
+</script>
+</body>
+</html>

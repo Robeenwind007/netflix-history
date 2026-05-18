@@ -563,17 +563,136 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+
+  /* ── SPLASH ── */
+  #splash {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #000;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  #splash.hide { animation: splashOut 0.7s ease forwards; }
+  @keyframes splashOut {
+    0%   { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.04); pointer-events: none; visibility: hidden; }
+  }
+  .splash-bg {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 60% 40%, #3a0000 0%, #1a0000 40%, #000 100%);
+  }
+  .splash-lines {
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(229,9,20,0.03) 3px, rgba(229,9,20,0.03) 4px);
+  }
+  .splash-glow {
+    position: absolute; width: 600px; height: 600px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(229,9,20,0.2) 0%, transparent 70%);
+    top: 50%; left: 50%; transform: translate(-50%, -60%);
+    animation: splashPulse 2.5s ease-in-out infinite;
+  }
+  @keyframes splashPulse {
+    0%,100% { transform: translate(-50%,-60%) scale(1); opacity:0.7; }
+    50%     { transform: translate(-50%,-60%) scale(1.15); opacity:1; }
+  }
+  .splash-content { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; }
+  .splash-n {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(120px, 30vw, 200px);
+    line-height: 0.85; color: #e50914; letter-spacing: -4px;
+    text-shadow: 0 0 80px rgba(229,9,20,0.6), 0 0 160px rgba(229,9,20,0.3);
+    animation: splashIn 0.8s cubic-bezier(0.16,1,0.3,1) 0.2s both;
+  }
+  .splash-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(28px, 7vw, 48px); letter-spacing: 14px; color: white;
+    animation: splashIn 0.8s cubic-bezier(0.16,1,0.3,1) 0.4s both;
+  }
+  .splash-sub {
+    margin-top: 16px; font-size: 12px; color: #888; letter-spacing: 3px; text-transform: uppercase;
+    animation: splashIn 0.8s cubic-bezier(0.16,1,0.3,1) 0.6s both;
+  }
+  @keyframes splashIn {
+    from { opacity:0; transform:translateY(30px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .splash-bar-wrap { margin-top: 48px; width: 180px; animation: splashIn 0.6s ease 0.9s both; }
+  .splash-bar-bg { height: 2px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+  .splash-bar-fill {
+    height: 2px; background: #e50914; border-radius: 2px; width: 0%;
+    animation: splashBar 1.8s ease 0.9s forwards;
+  }
+  @keyframes splashBar { 0%{width:0%} 60%{width:75%} 100%{width:100%} }
+  .splash-copyright {
+    position: absolute; bottom: 28px;
+    font-size: 11px; color: rgba(255,255,255,0.22); letter-spacing: 2px; text-transform: uppercase;
+    animation: splashIn 0.6s ease 1s both;
+  }
+  .splash-version {
+    position: absolute; bottom: 28px; right: 28px;
+    font-size: 13px; color: rgba(229,9,20,0.55); letter-spacing: 1px; font-family: 'Bebas Neue', sans-serif;
+    animation: splashIn 0.6s ease 1s both;
+  }
+
   @media (max-width: 600px) {
-    header { padding: 14px 16px; gap: 10px; }
+    header { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+    .logo { font-size: 24px; }
+    .search-wrap { order: 3; width: 100%; max-width: 100%; flex: none; }
+    .search-wrap input { font-size: 15px; padding: 11px 16px 11px 40px; border-radius: 8px; }
     main { padding: 16px; }
     .tabs { padding: 0 16px; overflow-x: auto; }
     .filters { padding: 10px 16px; }
     .header-stats { display: none; }
     .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
   }
+
+  .splash-actions {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px; margin-top: 36px; min-height: 110px;
+  }
+  .splash-data-info {
+    font-size: 12px; color: rgba(255,255,255,0.4);
+    letter-spacing: 1px; margin-bottom: 4px; text-align: center;
+  }
+  .splash-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 220px; padding: 14px 24px; border-radius: 6px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; border: none; text-decoration: none;
+    transition: transform 0.15s, opacity 0.15s;
+    animation: splashIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  .splash-btn:hover { transform: scale(1.04); opacity: 0.9; }
+  .splash-btn:active { transform: scale(0.97); }
+  .splash-btn-primary { background: #e50914; color: white; box-shadow: 0 4px 24px rgba(229,9,20,0.4); }
+  .splash-btn-secondary {
+    background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .splash-btn:nth-child(2) { animation-delay: 0.05s; }
+  .splash-btn:nth-child(3) { animation-delay: 0.12s; }
 </style>
 </head>
 <body>
+
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="splash-bg"></div>
+  <div class="splash-lines"></div>
+  <div class="splash-glow"></div>
+  <div class="splash-content">
+    <div class="splash-n">N</div>
+    <div class="splash-title">NetHistory</div>
+    <div class="splash-sub">Votre historique Netflix</div>
+    <div class="splash-bar-wrap" id="splash-bar-wrap">
+      <div class="splash-bar-bg"><div class="splash-bar-fill"></div></div>
+    </div>
+    <div class="splash-actions" id="splash-actions"></div>
+  </div>
+  <div class="splash-copyright">© Olivier BERNARD 2026</div>
+  <div class="splash-version">v1.1.0</div>
+</div>
 
 <header>
   <div class="logo">NET<span>HISTORY</span></div>
@@ -1207,6 +1326,84 @@ function hashStr(s) {
   for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
   return Math.abs(h).toString(36);
 }
+
+// ── SPLASH ───────────────────────────────────────────
+const STORAGE_KEY = 'nethistory_csv';
+
+function hideSplash() {
+  const splash = document.getElementById('splash');
+  splash.classList.add('hide');
+  setTimeout(() => splash.style.display = 'none', 700);
+}
+
+function showSplashActions(hasData) {
+  const wrap = document.getElementById('splash-bar-wrap');
+  const actions = document.getElementById('splash-actions');
+  if (wrap) wrap.style.display = 'none';
+
+  if (hasData) {
+    const info = localStorage.getItem(STORAGE_KEY + '_info') || '';
+    actions.innerHTML = `
+      <div class="splash-data-info">${info}</div>
+      <button class="splash-btn splash-btn-primary" id="btn-enter">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        Entrer
+      </button>
+      <button class="splash-btn splash-btn-secondary" id="btn-new-csv">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Nouveau CSV
+      </button>`;
+
+    document.getElementById('btn-enter').onclick = () => {
+      const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      // Restore dates
+      const restored = raw.map(r => ({ ...r, date: new Date(r.date) }));
+      hideSplash();
+      processData(restored);
+    };
+    document.getElementById('btn-new-csv').onclick = () => {
+      hideSplash();
+      // upload zone déjà visible par défaut
+    };
+  } else {
+    actions.innerHTML = `
+      <div class="splash-data-info">Aucun historique enregistré</div>
+      <button class="splash-btn splash-btn-primary" id="btn-import-splash">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Importer mon historique
+      </button>
+      <a class="splash-btn splash-btn-secondary" href="https://www.netflix.com/account/getmyinfo" target="_blank">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Télécharger depuis Netflix
+      </a>`;
+
+    document.getElementById('btn-import-splash').onclick = () => {
+      hideSplash();
+      setTimeout(() => document.getElementById('file-input').click(), 300);
+    };
+  }
+
+  actions.style.animation = 'splashIn 0.5s ease forwards';
+}
+
+// Sauvegarder les données dans localStorage après parsing
+const _origProcessData = processData;
+function processData(raw) {
+  // Sauvegarder en localStorage
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
+    const years = [...new Set(raw.map(r => new Date(r.date).getFullYear()))].sort();
+    const info = `${raw.length.toLocaleString('fr')} visions · ${years[0]}–${years[years.length-1]}`;
+    localStorage.setItem(STORAGE_KEY + '_info', info);
+  } catch(e) { /* quota dépassé */ }
+  _origProcessData(raw);
+}
+
+window.addEventListener('load', () => {
+  const hasData = !!localStorage.getItem(STORAGE_KEY);
+  // Attendre la fin de l'animation de la barre (1.8s + 0.9s delay = ~2.7s)
+  setTimeout(() => showSplashActions(hasData), 2000);
+});
 
 // ── SERVICE WORKER ────────────────────────────────────
 if ('serviceWorker' in navigator) {

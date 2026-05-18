@@ -1,10 +1,10 @@
-const CACHE = 'nethistory-v1';
+const CACHE = 'nethistory-v2';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  '/netflix-history/',
+  '/netflix-history/index.html',
+  '/netflix-history/manifest.json',
+  '/netflix-history/icons/icon-192.png',
+  '/netflix-history/icons/icon-512.png',
   'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap'
 ];
 

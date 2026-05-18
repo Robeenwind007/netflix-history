@@ -1271,7 +1271,10 @@ function readFile(f) {
   const reader = new FileReader();
   reader.onload = e => {
     const parsed = parseCSV(e.target.result);
-    if (parsed.length > 0) processData(parsed);
+    if (parsed.length > 0) {
+      saveToStorage(parsed);
+      processData(parsed);
+    }
   };
   reader.readAsText(f, 'UTF-8');
 }
@@ -1328,12 +1331,46 @@ function hashStr(s) {
 }
 
 // ── SPLASH ───────────────────────────────────────────
-const STORAGE_KEY = 'nethistory_csv';
+const STORAGE_KEY = 'nethistory_v2';
+const STORAGE_INFO_KEY = 'nethistory_v2_info';
 
 function hideSplash() {
   const splash = document.getElementById('splash');
+  if (!splash) return;
   splash.classList.add('hide');
-  setTimeout(() => splash.style.display = 'none', 700);
+  setTimeout(() => { splash.style.display = 'none'; }, 700);
+}
+
+function saveToStorage(raw) {
+  try {
+    // Stocker version compacte : seulement raw title + date string pour économiser de la place
+    const compact = raw.map(r => ({ r: r.raw, d: r.date.getTime(), y: r.year, m: r.month }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(compact));
+    const years = [...new Set(raw.map(r => r.year))].sort();
+    const info = raw.length.toLocaleString('fr') + ' visions · ' + years[0] + '–' + years[years.length-1];
+    localStorage.setItem(STORAGE_INFO_KEY, info);
+    return true;
+  } catch(e) {
+    console.warn('localStorage quota:', e);
+    return false;
+  }
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const compact = JSON.parse(raw);
+    return compact.map(r => ({
+      raw: r.r,
+      date: new Date(r.d),
+      year: r.y,
+      month: r.m
+    }));
+  } catch(e) {
+    console.warn('localStorage read error:', e);
+    return null;
+  }
 }
 
 function showSplashActions(hasData) {
@@ -1342,67 +1379,52 @@ function showSplashActions(hasData) {
   if (wrap) wrap.style.display = 'none';
 
   if (hasData) {
-    const info = localStorage.getItem(STORAGE_KEY + '_info') || '';
-    actions.innerHTML = `
-      <div class="splash-data-info">${info}</div>
-      <button class="splash-btn splash-btn-primary" id="btn-enter">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        Entrer
-      </button>
-      <button class="splash-btn splash-btn-secondary" id="btn-new-csv">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Nouveau CSV
-      </button>`;
+    const info = localStorage.getItem(STORAGE_INFO_KEY) || '';
+    actions.innerHTML =
+      '<div class="splash-data-info">' + info + '</div>' +
+      '<button class="splash-btn splash-btn-primary" id="btn-enter">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>' +
+        ' Entrer' +
+      '</button>' +
+      '<button class="splash-btn splash-btn-secondary" id="btn-new-csv">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
+        ' Nouveau CSV' +
+      '</button>';
 
-    document.getElementById('btn-enter').onclick = () => {
-      const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      // Restore dates
-      const restored = raw.map(r => ({ ...r, date: new Date(r.date) }));
+    document.getElementById('btn-enter').onclick = function() {
+      const restored = loadFromStorage();
+      if (!restored) { alert('Erreur de lecture, veuillez réimporter le CSV.'); return; }
       hideSplash();
       processData(restored);
     };
-    document.getElementById('btn-new-csv').onclick = () => {
-      hideSplash();
-      // upload zone déjà visible par défaut
-    };
-  } else {
-    actions.innerHTML = `
-      <div class="splash-data-info">Aucun historique enregistré</div>
-      <button class="splash-btn splash-btn-primary" id="btn-import-splash">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Importer mon historique
-      </button>
-      <a class="splash-btn splash-btn-secondary" href="https://www.netflix.com/account/getmyinfo" target="_blank">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Télécharger depuis Netflix
-      </a>`;
 
-    document.getElementById('btn-import-splash').onclick = () => {
+    document.getElementById('btn-new-csv').onclick = function() {
       hideSplash();
-      setTimeout(() => document.getElementById('file-input').click(), 300);
+      // upload zone visible par défaut
+    };
+
+  } else {
+    actions.innerHTML =
+      '<div class="splash-data-info">Aucun historique enregistré</div>' +
+      '<button class="splash-btn splash-btn-primary" id="btn-import-splash">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
+        ' Importer mon historique' +
+      '</button>' +
+      '<a class="splash-btn splash-btn-secondary" href="https://www.netflix.com/account/getmyinfo" target="_blank">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+        ' Télécharger depuis Netflix' +
+      '</a>';
+
+    document.getElementById('btn-import-splash').onclick = function() {
+      hideSplash();
+      setTimeout(function() { document.getElementById('file-input').click(); }, 300);
     };
   }
-
-  actions.style.animation = 'splashIn 0.5s ease forwards';
 }
 
-// Sauvegarder les données dans localStorage après parsing
-const _origProcessData = processData;
-function processData(raw) {
-  // Sauvegarder en localStorage
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
-    const years = [...new Set(raw.map(r => new Date(r.date).getFullYear()))].sort();
-    const info = `${raw.length.toLocaleString('fr')} visions · ${years[0]}–${years[years.length-1]}`;
-    localStorage.setItem(STORAGE_KEY + '_info', info);
-  } catch(e) { /* quota dépassé */ }
-  _origProcessData(raw);
-}
-
-window.addEventListener('load', () => {
+window.addEventListener('load', function() {
   const hasData = !!localStorage.getItem(STORAGE_KEY);
-  // Attendre la fin de l'animation de la barre (1.8s + 0.9s delay = ~2.7s)
-  setTimeout(() => showSplashActions(hasData), 2000);
+  setTimeout(function() { showSplashActions(hasData); }, 2000);
 });
 
 // ── SERVICE WORKER ────────────────────────────────────

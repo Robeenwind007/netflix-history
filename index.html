@@ -664,6 +664,23 @@
     .header-stats { display: none; }
     .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
   }
+
+  .plat-badge-card {
+    position: absolute; top: 7px; left: 7px;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
+    padding: 3px 7px; border-radius: 4px;
+    text-transform: uppercase; z-index: 2;
+    backdrop-filter: blur(4px);
+  }
+  .plat-badge-n { background: rgba(229,9,20,0.85); color: white; }
+  .plat-badge-p { background: rgba(0,168,224,0.85); color: white; }
+  .card { position: relative; }
+  .list-plat {
+    font-size: 10px; font-weight: 700; padding: 2px 6px;
+    border-radius: 3px; text-transform: uppercase; flex-shrink: 0;
+  }
+  .list-plat-n { background: rgba(229,9,20,0.15); color: #e50914; }
+  .list-plat-p { background: rgba(0,168,224,0.15); color: #00a8e0; }
 </style>
 </head>
 <body>
@@ -999,7 +1016,12 @@ function renderSeries() {
 
 function cardHTML(name,s) {
   const epCount=s.episodes.length, sCount=s.seasons.size, last=formatDate(s.lastDate);
+  const isPrime = s.episodes.some(e=>e.platform==='prime');
+  const platBadge = isPrime
+    ? '<span class="plat-badge-card plat-badge-p">Prime</span>'
+    : '<span class="plat-badge-card plat-badge-n">Netflix</span>';
   return `<div class="card" onclick="openModal('${escapeAttr(name)}')">
+    ${platBadge}
     <div class="card-poster-placeholder" data-tmdb="${escapeAttr(name)}" data-type="tv" id="poster-${hashStr(name)}">${name.substring(0,30)}</div>
     <div class="card-info">
       <div class="card-title" title="${escapeAttr(name)}">${escapeHtml(name)}</div>
@@ -1014,12 +1036,16 @@ function cardHTML(name,s) {
 
 function listItemHTML(name,s) {
   const epCount=s.episodes.length, sCount=s.seasons.size, last=formatDate(s.lastDate);
+  const isPrime = s.episodes.some(e=>e.platform==='prime');
   return `<div class="list-item" onclick="openModal('${escapeAttr(name)}')">
     <div>
       <div class="list-title">${escapeHtml(name)}</div>
       <div class="list-sub">${sCount>0?`${sCount} saison${sCount>1?'s':''} · `:''}Vu depuis ${formatDate(s.firstDate)}</div>
     </div>
-    <div class="list-badges"><span class="badge badge-ep">${epCount} ép.</span></div>
+    <div class="list-badges">
+      <span class="list-plat ${isPrime?'list-plat-p':'list-plat-n'}">${isPrime?'Prime':'Netflix'}</span>
+      <span class="badge badge-ep">${epCount} ép.</span>
+    </div>
     <div class="list-date">${last}</div>
   </div>`;
 }
@@ -1029,21 +1055,27 @@ function renderFilms() {
   const container=document.getElementById('tab-films');
   if (!list.length){container.innerHTML='<div class="empty">Aucun film trouvé</div>';return;}
   if (currentView==='grid') {
-    container.innerHTML=`<div class="grid">${list.map(f=>`
-      <div class="card" onclick="openFilmModal('${escapeAttr(f.title)}','${escapeAttr(formatDate(f.date))}')">
+    container.innerHTML=`<div class="grid">${list.map(f=>{
+      const isPrime=f.platform==='prime';
+      const pb=isPrime?'<span class="plat-badge-card plat-badge-p">Prime</span>':'<span class="plat-badge-card plat-badge-n">Netflix</span>';
+      return `<div class="card" onclick="openFilmModal('${escapeAttr(f.title)}','${escapeAttr(formatDate(f.date))}')">
+        ${pb}
         <div class="card-poster-placeholder" data-tmdb="${escapeAttr(f.title)}" data-type="movie" id="poster-${hashStr(f.title)}">${f.title.substring(0,30)}</div>
         <div class="card-info">
           <div class="card-title" title="${escapeAttr(f.title)}">${escapeHtml(f.title)}</div>
           <div class="card-meta"><span class="badge badge-date">${formatDate(f.date)}</span></div>
         </div>
-      </div>`).join('')}</div>`;
+      </div>`;
+    }).join('')}</div>`;
   } else {
-    container.innerHTML=`<div class="list-view">${list.map(f=>`
-      <div class="list-item">
+    container.innerHTML=`<div class="list-view">${list.map(f=>{
+      const isPrime=f.platform==='prime';
+      return `<div class="list-item">
         <div><div class="list-title">${escapeHtml(f.title)}</div></div>
-        <div></div>
+        <div><span class="list-plat ${isPrime?'list-plat-p':'list-plat-n'}">${isPrime?'Prime':'Netflix'}</span></div>
         <div class="list-date">${formatDate(f.date)}</div>
-      </div>`).join('')}</div>`;
+      </div>`;
+    }).join('')}</div>`;
   }
   container.querySelectorAll('[data-tmdb]').forEach(el=>loadPoster(el,el.dataset.tmdb,el.dataset.type||'movie'));
 }

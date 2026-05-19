@@ -919,9 +919,13 @@ function processData(raw) {
 
 function updateStats() {
   const years = new Set(allData.map(d=>d.year));
-  const isPrime = allData.some(d=>d.platform==='prime');
+  const hasN = allData.some(d=>d.platform==='netflix'||!d.platform);
+  const hasP = allData.some(d=>d.platform==='prime');
   const badge = document.getElementById('plat-badge');
-  if (badge) { badge.textContent = isPrime ? '📦 Prime Video' : '🎬 Netflix'; badge.style.display=''; }
+  if (badge) {
+    badge.textContent = (hasN&&hasP) ? '🎬 Netflix + 📦 Prime' : hasP ? '📦 Prime Video' : '🎬 Netflix';
+    badge.style.display='';
+  }
   document.getElementById('stat-total').textContent = allData.length.toLocaleString('fr');
   document.getElementById('stat-series').textContent = Object.keys(seriesMap).length.toLocaleString('fr');
   document.getElementById('stat-films').textContent = filmsList.length.toLocaleString('fr');
@@ -1207,28 +1211,64 @@ async function loadPoster(el,name,type) {
 }
 
 // ── STORAGE ───────────────────────────────────────────
-const STORAGE_KEY='nethistory_v2';
-const STORAGE_INFO_KEY='nethistory_v2_info';
+const STORAGE_NETFLIX = 'nethistory_netflix';
+const STORAGE_PRIME   = 'nethistory_prime';
+const STORAGE_INFO    = 'nethistory_info';
+
+function compactItems(raw) {
+  return raw.map(r=>({
+    r:r.raw, d:r.date.getTime(), y:r.year, m:r.month,
+    p:r.platform||'netflix', pt:r.primeType||'', pti:r.primeTitle||'', ps:r.primeSeason||''
+  }));
+}
+
+function expandItems(compact) {
+  return compact.map(r=>({
+    raw:r.r, date:new Date(r.d), year:r.y, month:r.m,
+    platform:r.p||'netflix', primeType:r.pt||'', primeTitle:r.pti||'', primeSeason:r.ps||''
+  }));
+}
 
 function saveToStorage(raw) {
   try {
-    const compact=raw.map(r=>({r:r.raw,d:r.date.getTime(),y:r.year,m:r.month,p:r.platform||'netflix',pt:r.primeType||'',pti:r.primeTitle||'',ps:r.primeSeason||''}));
-    localStorage.setItem(STORAGE_KEY,JSON.stringify(compact));
-    const years=[...new Set(raw.map(r=>r.year))].sort();
-    localStorage.setItem(STORAGE_INFO_KEY,raw.length.toLocaleString('fr')+' visions · '+years[0]+'–'+years[years.length-1]);
+    const platform = raw[0]?.platform || 'netflix';
+    const key = platform === 'prime' ? STORAGE_PRIME : STORAGE_NETFLIX;
+    localStorage.setItem(key, JSON.stringify(compactItems(raw)));
+    updateStorageInfo();
     return true;
-  } catch(e){return false;}
+  } catch(e) { return false; }
+}
+
+function updateStorageInfo() {
+  const all = loadFromStorage();
+  if (!all || !all.length) return;
+  const years = [...new Set(all.map(r=>r.year))].sort();
+  const hasN = all.some(r=>r.platform==='netflix');
+  const hasP = all.some(r=>r.platform==='prime');
+  const platLabel = (hasN && hasP) ? '🎬+📦' : hasP ? '📦 Prime' : '🎬 Netflix';
+  localStorage.setItem(STORAGE_INFO, platLabel + ' · ' + all.length.toLocaleString('fr') + ' visions · ' + years[0] + '–' + years[years.length-1]);
 }
 
 function loadFromStorage() {
   try {
-    const raw=localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw).map(r=>({
-      raw:r.r, date:new Date(r.d), year:r.y, month:r.m,
-      platform:r.p||'netflix', primeType:r.pt||'', primeTitle:r.pti||'', primeSeason:r.ps||''
-    }));
-  } catch(e){return null;}
+    const netflix = localStorage.getItem(STORAGE_NETFLIX);
+    const prime   = localStorage.getItem(STORAGE_PRIME);
+    const result  = [];
+    if (netflix) result.push(...expandItems(JSON.parse(netflix)));
+    if (prime)   result.push(...expandItems(JSON.parse(prime)));
+    return result.length ? result.sort((a,b)=>b.date-a.date) : null;
+  } catch(e) { return null; }
+}
+
+function hasAnyStorage() {
+  return !!localStorage.getItem(STORAGE_NETFLIX) || !!localStorage.getItem(STORAGE_PRIME);
+}
+
+function getStoragePlatforms() {
+  return {
+    netflix: !!localStorage.getItem(STORAGE_NETFLIX),
+    prime:   !!localStorage.getItem(STORAGE_PRIME)
+  };
 }
 
 // ── SPLASH ────────────────────────────────────────────
@@ -1243,34 +1283,54 @@ function showSplashActions(hasData) {
   const wrap=document.getElementById('splash-bar-wrap');
   const actions=document.getElementById('splash-actions');
   if (wrap) wrap.style.display='none';
+
   if (hasData) {
-    const info=localStorage.getItem(STORAGE_INFO_KEY)||'';
-    actions.innerHTML=
-      '<div class="splash-data-info">'+info+'</div>'+
-      '<button class="splash-btn splash-btn-primary" id="btn-enter"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Entrer</button>'+
-      '<button class="splash-btn splash-btn-secondary" id="btn-new-csv"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Nouveau CSV</button>';
-    document.getElementById('btn-enter').onclick=function(){
-      const restored=loadFromStorage();
-      if (!restored){alert('Erreur de lecture, réimportez le CSV.');return;}
+    const info = localStorage.getItem(STORAGE_INFO) || '';
+    const plats = getStoragePlatforms();
+    // Badges plateformes disponibles
+    const platBadges =
+      (plats.netflix ? '<span style="background:rgba(229,9,20,0.2);color:#e50914;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">🎬 Netflix</span>' : '') +
+      (plats.prime   ? '<span style="background:rgba(0,168,224,0.2);color:#00a8e0;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;margin-left:6px">📦 Prime</span>' : '');
+
+    actions.innerHTML =
+      '<div class="splash-data-info" style="display:flex;flex-direction:column;align-items:center;gap:6px">' +
+        '<div>' + platBadges + '</div>' +
+        '<div>' + info.replace(/^[🎬📦+·\s]+/,'').trim() + '</div>' +
+      '</div>' +
+      '<button class="splash-btn splash-btn-primary" id="btn-enter">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Entrer' +
+      '</button>' +
+      '<button class="splash-btn splash-btn-secondary" id="btn-new-csv">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Ajouter / mettre à jour' +
+      '</button>';
+
+    document.getElementById('btn-enter').onclick = function() {
+      const restored = loadFromStorage();
+      if (!restored) { alert('Erreur de lecture, réimportez le CSV.'); return; }
       hideSplash();
       processData(restored);
     };
-    document.getElementById('btn-new-csv').onclick=function(){hideSplash();};
+    document.getElementById('btn-new-csv').onclick = function() { hideSplash(); };
+
   } else {
-    actions.innerHTML=
-      '<div class="splash-data-info">Aucun historique enregistré</div>'+
-      '<button class="splash-btn splash-btn-primary" id="btn-import-splash"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Importer mon historique</button>'+
-      '<a class="splash-btn splash-btn-secondary" href="https://www.netflix.com/account/getmyinfo" target="_blank"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Télécharger depuis Netflix</a>';
-    document.getElementById('btn-import-splash').onclick=function(){
+    actions.innerHTML =
+      '<div class="splash-data-info">Aucun historique enregistré</div>' +
+      '<button class="splash-btn splash-btn-primary" id="btn-import-splash">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Importer mon historique' +
+      '</button>' +
+      '<a class="splash-btn splash-btn-secondary" href="https://www.netflix.com/account/getmyinfo" target="_blank">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Télécharger depuis Netflix' +
+      '</a>';
+
+    document.getElementById('btn-import-splash').onclick = function() {
       hideSplash();
-      setTimeout(()=>document.getElementById('file-input').click(),300);
+      setTimeout(()=>document.getElementById('file-input').click(), 300);
     };
   }
 }
 
-window.addEventListener('load',function(){
-  const hasData=!!localStorage.getItem(STORAGE_KEY);
-  setTimeout(()=>showSplashActions(hasData),2000);
+window.addEventListener('load', function() {
+  setTimeout(()=>showSplashActions(hasAnyStorage()), 2000);
 });
 
 // ── UPLOAD ────────────────────────────────────────────

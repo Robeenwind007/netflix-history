@@ -671,6 +671,20 @@
   }
   .splash-btn:nth-child(2) { animation-delay: 0.05s; }
   .splash-btn:nth-child(3) { animation-delay: 0.12s; }
+
+  .platform-select {
+    display: flex; gap: 10px; margin: 14px 0 8px;
+  }
+  .plat-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: 20px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 13px; cursor: pointer; transition: all 0.15s;
+  }
+  .plat-btn:hover { border-color: var(--muted); color: var(--text); }
+  .plat-btn.active { border-color: var(--red); color: var(--text); background: rgba(229,9,20,0.08); }
+  .plat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -703,6 +717,7 @@
     <input type="text" id="search" placeholder="Rechercher…">
   </div>
   <div class="header-stats" id="header-stats" style="display:none">
+    <span id="plat-badge" style="display:none;font-size:11px;color:var(--muted);padding:4px 10px;background:var(--bg3);border-radius:12px;border:1px solid var(--border)"></span>
     <div class="stat"><div class="stat-n" id="stat-total">—</div><div class="stat-l">épisodes</div></div>
     <div class="stat"><div class="stat-n" id="stat-series">—</div><div class="stat-l">séries</div></div>
     <div class="stat"><div class="stat-n" id="stat-films">—</div><div class="stat-l">films</div></div>
@@ -734,19 +749,36 @@
 <main>
   <div id="upload-zone">
     <label class="drop-area" id="drop-area">
-      <div class="drop-icon">🎬</div>
+      <div class="drop-icon" id="drop-icon">🎬</div>
       <div class="drop-title">Déposez votre CSV</div>
-      <div class="drop-sub">Glissez-déposez le fichier<br><strong>NetflixViewingHistory.csv</strong><br>ou cliquez pour parcourir</div>
+      <div class="platform-select">
+        <button class="plat-btn active" data-plat="netflix">
+          <span class="plat-dot" style="background:#e50914"></span>Netflix
+        </button>
+        <button class="plat-btn" data-plat="prime">
+          <span class="plat-dot" style="background:#00a8e0"></span>Prime Video
+        </button>
+      </div>
+      <div class="drop-sub" id="drop-sub">Glissez-déposez <strong>NetflixViewingHistory.csv</strong><br>ou cliquez pour parcourir</div>
       <button class="btn-import" onclick="event.preventDefault(); document.getElementById('file-input').click()">Choisir un fichier</button>
       <input type="file" id="file-input" accept=".csv">
     </label>
-    <div class="how-to">
+    <div class="how-to" id="how-to-netflix">
       <h3>📋 Comment télécharger votre historique Netflix ?</h3>
       <ol>
         <li>Connectez-vous sur <a href="https://www.netflix.com" target="_blank">netflix.com</a></li>
         <li>Menu → Compte → Profil → Accès aux données</li>
         <li>Télécharger → Historique de visionnage</li>
         <li>Attendez l'email, puis importez ici le CSV</li>
+      </ol>
+    </div>
+    <div class="how-to" id="how-to-prime" style="display:none">
+      <h3>🎬 Comment exporter votre historique Prime Video ?</h3>
+      <ol>
+        <li>Allez sur <a href="https://www.primevideo.com/region/eu/settings/watch-history" target="_blank">primevideo.com → Historique</a></li>
+        <li>Ouvrez la console DevTools (F12 → Console)</li>
+        <li>Collez le script <strong>prime-video-export.js</strong> et appuyez sur Entrée</li>
+        <li>Le CSV se télécharge automatiquement</li>
       </ol>
     </div>
   </div>
@@ -779,662 +811,108 @@ let currentView = 'grid';
 let tmdbCache = {};
 const TMDB_KEY = '8265bd1679663a7ea12ac168da84d2e8'; // clé publique TMDB
 
-// ── PARSE CSV ─────────────────────────────────────────
-function parseCSV(text) {
+// ── PLATFORM ─────────────────────────────────────────
+let currentPlatform = 'netflix'; // 'netflix' | 'prime'
+
+// ── DETECT FORMAT ─────────────────────────────────────
+function detectFormat(text) {
+  const firstLine = text.trim().split('\n')[0].toLowerCase();
+  if (firstLine.includes('date watched') && firstLine.includes('type')) return 'prime';
+  return 'netflix';
+}
+
+// ── PARSE CSV NETFLIX ─────────────────────────────────
+function parseNetflixCSV(text) {
   const lines = text.trim().split('\n');
   const results = [];
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    // parse quoted CSV
     const m = line.match(/^"(.+)","(.+)"$/) || line.match(/^(.+),(.+)$/);
     if (!m) continue;
     const rawTitle = m[1].replace(/^"|"$/g, '');
     const rawDate  = m[2].replace(/^"|"$/g, '');
     const [mo, da, yr] = rawDate.split('/').map(Number);
     const fullYear = yr < 100 ? 2000 + yr : yr;
+    results.push({ raw: rawTitle, date: new Date(fullYear, mo-1, da), year: fullYear, month: mo, platform: 'netflix' });
+  }
+  return results;
+}
+
+// ── PARSE CSV PRIME VIDEO ─────────────────────────────
+const MONTHS_FR = {
+  'janvier':1,'février':2,'mars':3,'avril':4,'mai':5,'juin':6,
+  'juillet':7,'août':8,'septembre':9,'octobre':10,'novembre':11,'décembre':12
+};
+
+function parsePrimeCSV(text) {
+  // Nettoyer le BOM
+  text = text.replace(/^\uFEFF/, '');
+  const lines = text.trim().split('\n');
+  const results = [];
+
+  function parseQuotedCSV(line) {
+    const cols = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (c === ',' && !inQ) { cols.push(cur); cur = ''; }
+      else cur += c;
+    }
+    cols.push(cur);
+    return cols;
+  }
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cols = parseQuotedCSV(line);
+    if (cols.length < 3) continue;
+
+    const rawDate = cols[0].trim();
+    const type    = cols[1].trim();
+    let title     = cols[2].trim();
+    const season  = (cols[3] || '').trim();
+
+    // Nettoyer le É parasite (résidu "Épisodes regardés")
+    title = title.replace(/É$/, '').trim();
+
+    // Parser la date française "29 novembre 2025"
+    const parts = rawDate.split(' ');
+    let date = new Date();
+    if (parts.length === 3) {
+      const day  = parseInt(parts[0]);
+      const mon  = MONTHS_FR[parts[1].toLowerCase()] || 1;
+      const year = parseInt(parts[2]);
+      date = new Date(year, mon-1, day);
+    }
+
+    // Construire un raw similaire à Netflix pour la compatibilité
+    const raw = season ? title + ': ' + season : title;
+
     results.push({
-      raw: rawTitle,
-      date: new Date(fullYear, mo - 1, da),
-      year: fullYear,
-      month: mo
+      raw,
+      date,
+      year: date.getFullYear(),
+      month: date.getMonth()+1,
+      platform: 'prime',
+      primeType: type,
+      primeTitle: title,
+      primeSeason: season
     });
   }
   return results;
 }
 
-function parseTitle(raw) {
-  // Format: "Série: Saison N: Episode" ou "Série: Episode" ou "Film seul"
-  const parts = raw.split(':').map(s => s.trim());
-  if (parts.length === 1) return { type: 'film', serie: raw, season: null, episode: raw };
-  
-  // Détecte "Mini-série" ou "Saison N"
-  const hasSeason = parts.some(p => /^(saison|season|mini-série|mini-serie|partie|part)\s/i.test(p));
-  
-  if (parts.length >= 2) {
-    // Essai : le premier part est toujours le nom de la série
-    const serie = parts[0];
-    
-    // Cherche saison
-    let season = null;
-    for (const p of parts) {
-      if (/^(saison|season|mini-série|mini-serie|série|partie|part)\s/i.test(p)) {
-        season = p;
-        break;
-      }
-    }
-    
-    const episode = parts[parts.length - 1];
-    
-    // Heuristique "film seul" : pas de détecteur de saison et 2 parties max avec 2e ≠ épisode
-    const isLikelyFilm = parts.length === 1 || 
-      (!hasSeason && parts.length === 2 && !/^(épisode|episode|ep\.|ep\s)/i.test(parts[1]));
-    
-    return {
-      type: isLikelyFilm ? 'film' : 'serie',
-      serie,
-      season,
-      episode,
-      raw
-    };
-  }
-  return { type: 'film', serie: raw, season: null, episode: raw };
+// ── PARSE CSV (auto-detect) ───────────────────────────
+function parseCSV(text) {
+  const fmt = detectFormat(text);
+  currentPlatform = fmt;
+  if (fmt === 'prime') return parsePrimeCSV(text);
+  return parseNetflixCSV(text);
 }
 
-// ── PROCESS ───────────────────────────────────────────
-function processData(raw) {
-  allData = raw;
-  seriesMap = {};
-  filmsList = [];
 
-  for (const item of raw) {
-    const p = parseTitle(item.raw);
-    if (p.type === 'film') {
-      filmsList.push({ ...item, title: p.serie });
-    } else {
-      if (!seriesMap[p.serie]) {
-        seriesMap[p.serie] = { episodes: [], seasons: new Set(), lastDate: item.date, firstDate: item.date };
-      }
-      const s = seriesMap[p.serie];
-      s.episodes.push({ ...item, season: p.season, episode: p.episode });
-      if (p.season) s.seasons.add(p.season);
-      if (item.date > s.lastDate) s.lastDate = item.date;
-      if (item.date < s.firstDate) s.firstDate = item.date;
-    }
-  }
-
-  // Remove films that have episodes elsewhere
-  const serieNames = new Set(Object.keys(seriesMap));
-  filmsList = filmsList.filter(f => !serieNames.has(f.title));
-
-  updateStats();
-  renderYearFilter();
-  showContent();
-  renderTab('series');
-}
-
-function updateStats() {
-  const years = new Set(allData.map(d => d.year));
-  document.getElementById('stat-total').textContent = allData.length.toLocaleString('fr');
-  document.getElementById('stat-series').textContent = Object.keys(seriesMap).length.toLocaleString('fr');
-  document.getElementById('stat-films').textContent = filmsList.length.toLocaleString('fr');
-  document.getElementById('stat-years').textContent = years.size;
-  document.getElementById('tc-series').textContent = Object.keys(seriesMap).length;
-  document.getElementById('tc-films').textContent = filmsList.length;
-}
-
-function renderYearFilter() {
-  const years = [...new Set(allData.map(d => d.year))].sort((a,b) => b - a);
-  const sel = document.getElementById('year-filter');
-  sel.innerHTML = '<option value="">Toutes les années</option>';
-  years.forEach(y => { const o = document.createElement('option'); o.value = y; o.textContent = y; sel.appendChild(o); });
-}
-
-function showContent() {
-  document.getElementById('upload-zone').style.display = 'none';
-  document.getElementById('content').style.display = 'block';
-  document.getElementById('tabs').style.display = 'flex';
-  document.getElementById('filters').style.display = 'flex';
-  document.getElementById('header-stats').style.display = 'flex';
-  document.getElementById('search-wrap').style.display = 'block';
-}
-
-// ── RENDER ────────────────────────────────────────────
-function getFilteredSeries() {
-  const q = document.getElementById('search').value.toLowerCase();
-  let list = Object.entries(seriesMap);
-  
-  if (q) list = list.filter(([name]) => name.toLowerCase().includes(q));
-  if (currentYear) list = list.filter(([, s]) => s.episodes.some(e => e.year == currentYear));
-  
-  if (currentSort === 'last') list.sort((a,b) => b[1].lastDate - a[1].lastDate);
-  else if (currentSort === 'alpha') list.sort((a,b) => a[0].localeCompare(b[0], 'fr'));
-  else list.sort((a,b) => b[1].episodes.length - a[1].episodes.length);
-  
-  return list;
-}
-
-function getFilteredFilms() {
-  const q = document.getElementById('search').value.toLowerCase();
-  let list = [...filmsList];
-  
-  if (q) list = list.filter(f => f.title.toLowerCase().includes(q));
-  if (currentYear) list = list.filter(f => f.year == currentYear);
-  
-  if (currentSort === 'last') list.sort((a,b) => b.date - a.date);
-  else if (currentSort === 'alpha') list.sort((a,b) => a.title.localeCompare(b.title, 'fr'));
-  
-  return list;
-}
-
-function formatDate(d) {
-  if (!d) return '';
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function renderTab(tab) {
-  if (tab) currentTab = tab;
-  // Hide filters for timeline/stats
-  document.getElementById('filters').style.display = (currentTab === 'stats' || currentTab === 'timeline') ? 'none' : 'flex';
-  
-  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-  document.getElementById('tab-' + currentTab).style.display = 'block';
-  
-  if (currentTab === 'series') renderSeries();
-  else if (currentTab === 'films') renderFilms();
-  else if (currentTab === 'timeline') renderTimeline();
-  else if (currentTab === 'stats') renderStats();
-}
-
-function renderSeries() {
-  const list = getFilteredSeries();
-  const container = document.getElementById('tab-series');
-
-  if (!list.length) { container.innerHTML = '<div class="empty">Aucune série trouvée</div>'; return; }
-
-  if (currentView === 'grid') {
-    container.innerHTML = `<div class="grid">${list.map(([name, s]) => cardHTML(name, s)).join('')}</div>`;
-  } else {
-    container.innerHTML = `<div class="list-view">${list.map(([name, s]) => listItemHTML(name, s)).join('')}</div>`;
-  }
-
-  // lazy TMDB posters
-  container.querySelectorAll('[data-tmdb]').forEach(el => loadPoster(el, el.dataset.tmdb, el.dataset.type || 'tv'));
-}
-
-function cardHTML(name, s) {
-  const epCount = s.episodes.length;
-  const sCount  = s.seasons.size;
-  const last    = formatDate(s.lastDate);
-  return `<div class="card" onclick="openModal('${escapeAttr(name)}')">
-    <div class="card-poster-placeholder" data-tmdb="${escapeAttr(name)}" data-type="tv" id="poster-${hashStr(name)}">${name.substring(0,30)}</div>
-    <div class="card-info">
-      <div class="card-title" title="${escapeAttr(name)}">${escapeHtml(name)}</div>
-      <div class="card-meta">
-        <span class="badge badge-ep">${epCount} ép.</span>
-        ${sCount > 0 ? `<span class="badge badge-s">${sCount} saison${sCount>1?'s':''}</span>` : ''}
-        <span class="badge badge-date">${last}</span>
-      </div>
-    </div>
-  </div>`;
-}
-
-function listItemHTML(name, s) {
-  const epCount = s.episodes.length;
-  const sCount  = s.seasons.size;
-  const last    = formatDate(s.lastDate);
-  return `<div class="list-item" onclick="openModal('${escapeAttr(name)}')">
-    <div>
-      <div class="list-title">${escapeHtml(name)}</div>
-      <div class="list-sub">${sCount > 0 ? `${sCount} saison${sCount>1?'s':''} · ` : ''}Vu depuis ${formatDate(s.firstDate)}</div>
-    </div>
-    <div class="list-badges">
-      <span class="badge badge-ep">${epCount} ép.</span>
-    </div>
-    <div class="list-date">${last}</div>
-  </div>`;
-}
-
-function renderFilms() {
-  const list = getFilteredFilms();
-  const container = document.getElementById('tab-films');
-  if (!list.length) { container.innerHTML = '<div class="empty">Aucun film trouvé</div>'; return; }
-  
-  if (currentView === 'grid') {
-    container.innerHTML = `<div class="grid">${list.map(f => `
-      <div class="card" onclick="openFilmModal('${escapeAttr(f.title)}', '${escapeAttr(formatDate(f.date))}')">
-        <div class="card-poster-placeholder" data-tmdb="${escapeAttr(f.title)}" data-type="movie" id="poster-${hashStr(f.title)}">${f.title.substring(0,30)}</div>
-        <div class="card-info">
-          <div class="card-title" title="${escapeAttr(f.title)}">${escapeHtml(f.title)}</div>
-          <div class="card-meta"><span class="badge badge-date">${formatDate(f.date)}</span></div>
-        </div>
-      </div>`).join('')}</div>`;
-  } else {
-    container.innerHTML = `<div class="list-view">${list.map(f => `
-      <div class="list-item">
-        <div><div class="list-title">${escapeHtml(f.title)}</div></div>
-        <div></div>
-        <div class="list-date">${formatDate(f.date)}</div>
-      </div>`).join('')}</div>`;
-  }
-  container.querySelectorAll('[data-tmdb]').forEach(el => loadPoster(el, el.dataset.tmdb, el.dataset.type || 'movie'));
-}
-
-function renderTimeline() {
-  const container = document.getElementById('tab-timeline');
-  const byYear = {};
-  for (const item of allData) {
-    if (!byYear[item.year]) byYear[item.year] = [];
-    byYear[item.year].push(item);
-  }
-  const years = Object.keys(byYear).sort((a,b) => b - a);
-  
-  container.innerHTML = `<div class="timeline">${years.map(y => {
-    const items = byYear[y];
-    // group by month
-    const byMonth = {};
-    for (const it of items) {
-      if (!byMonth[it.month]) byMonth[it.month] = 0;
-      byMonth[it.month]++;
-    }
-    return `<div class="year-block">
-      <div class="year-header">${y} <span class="year-ep-count">${items.length} visions</span></div>
-      ${renderMonthBars(byMonth)}
-      <div class="list-view" style="margin-top:16px">
-        ${items.slice(0,10).map(it => `
-          <div class="list-item">
-            <div class="list-title">${escapeHtml(it.raw)}</div>
-            <div></div>
-            <div class="list-date">${formatDate(it.date)}</div>
-          </div>`).join('')}
-        ${items.length > 10 ? `<div style="padding:10px 16px;color:var(--muted);font-size:12px">… et ${items.length - 10} autres visions</div>` : ''}
-      </div>
-    </div>`;
-  }).join('')}</div>`;
-}
-
-function renderMonthBars(byMonth) {
-  const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  const max = Math.max(...Object.values(byMonth), 1);
-  return `<div class="chart-wrap">
-    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Visions par mois</div>
-    <div class="bar-chart">
-      ${months.map((m, i) => {
-        const count = byMonth[i+1] || 0;
-        const h = Math.round((count / max) * 90);
-        return `<div class="bar-col">
-          <div class="bar-fill" style="height:${h}px" data-count="${count}"></div>
-          <div class="bar-label">${m}</div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>`;
-}
-
-function renderStats() {
-  const container = document.getElementById('tab-stats');
-
-  const totalEp   = allData.length;
-  const nSeries   = Object.keys(seriesMap).length;
-  const nFilms    = filmsList.length;
-  const years     = new Set(allData.map(d => d.year));
-  const firstDate = new Date(Math.min(...allData.map(d => d.date)));
-  const lastDate  = new Date(Math.max(...allData.map(d => d.date)));
-
-  // Top séries
-  const topSeries = Object.entries(seriesMap)
-    .sort((a,b) => b[1].episodes.length - a[1].episodes.length)
-    .slice(0, 10);
-  const maxEp = topSeries[0]?.[1].episodes.length || 1;
-
-  // By year
-  const byYear = {};
-  for (const d of allData) { byYear[d.year] = (byYear[d.year]||0) + 1; }
-  const sortedYears = Object.keys(byYear).sort((a,b) => a - b);
-  const maxY = Math.max(...Object.values(byYear), 1);
-
-  container.innerHTML = `
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-card-n">${totalEp.toLocaleString('fr')}</div><div class="stat-card-l">Épisodes & films vus</div><div class="stat-card-sub">Depuis ${formatDate(firstDate)}</div></div>
-      <div class="stat-card"><div class="stat-card-n">${nSeries}</div><div class="stat-card-l">Séries regardées</div></div>
-      <div class="stat-card"><div class="stat-card-n">${nFilms}</div><div class="stat-card-l">Films regardés</div></div>
-      <div class="stat-card"><div class="stat-card-n">${years.size}</div><div class="stat-card-l">Années d'historique</div><div class="stat-card-sub">${[...years].sort()[0]} → ${[...years].sort().pop()}</div></div>
-      <div class="stat-card"><div class="stat-card-n">${Math.round(totalEp / years.size)}</div><div class="stat-card-l">Visions / an en moyenne</div></div>
-      <div class="stat-card"><div class="stat-card-n">${topSeries[0]?.[0].split(':')[0] || '—'}</div><div class="stat-card-l">Série la + regardée</div><div class="stat-card-sub">${topSeries[0]?.[1].episodes.length || 0} épisodes</div></div>
-    </div>
-
-    <div class="chart-wrap">
-      <div class="section-title">Activité par année</div>
-      <div class="bar-chart" style="height:120px">
-        ${sortedYears.map(y => {
-          const h = Math.round((byYear[y] / maxY) * 110);
-          return `<div class="bar-col">
-            <div class="bar-fill" style="height:${h}px" data-count="${byYear[y]}"></div>
-            <div class="bar-label">${y}</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>
-
-    <div class="section-title">Top 10 séries</div>
-    <div class="top-list">
-      ${topSeries.map(([name, s], i) => `
-        <div class="top-item">
-          <div class="top-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${i+1}</div>
-          <div class="top-name">${escapeHtml(name)}</div>
-          <div class="top-bar-wrap"><div class="top-bar-bg"><div class="top-bar-fill" style="width:${Math.round(s.episodes.length/maxEp*100)}%"></div></div></div>
-          <div class="top-count">${s.episodes.length} ép.</div>
-        </div>`).join('')}
-    </div>`;
-}
-
-// ── MODAL ─────────────────────────────────────────────
-function openModal(name) {
-  const s = seriesMap[name];
-  if (!s) return;
-
-  // group by season
-  const seasons = {};
-  for (const ep of s.episodes) {
-    const key = ep.season || 'Sans saison';
-    if (!seasons[key]) seasons[key] = [];
-    seasons[key].push(ep);
-  }
-
-  const posterId = 'mp-' + hashStr(name);
-  let html = `<div class="modal-header">
-    <div class="modal-poster-ph" id="${posterId}" data-tmdb="${escapeAttr(name)}" data-type="tv">📺</div>
-    <div class="modal-title-wrap">
-      <div class="modal-title">${escapeHtml(name)}</div>
-      <div class="modal-badges">
-        <span class="badge badge-ep">${s.episodes.length} épisodes</span>
-        <span class="badge badge-s">${s.seasons.size} saison${s.seasons.size>1?'s':''}</span>
-      </div>
-      <div class="modal-overview" id="tmdb-overview-${hashStr(name)}"><span class="loading"><span class="spinner"></span>Chargement…</span></div>
-    </div>
-  </div>
-  <div class="modal-body">`;
-
-  const orderedSeasons = Object.keys(seasons).sort((a,b) => {
-    const na = parseInt(a.match(/\d+/)?.[0] || 0);
-    const nb = parseInt(b.match(/\d+/)?.[0] || 0);
-    return na - nb;
-  });
-
-  for (const season of orderedSeasons) {
-    const eps = seasons[season].sort((a,b) => a.episode.localeCompare(b.episode, 'fr'));
-    html += `<div class="ep-season">
-      <div class="ep-season-title">${escapeHtml(season)}</div>
-      <div class="ep-list">
-        ${eps.map(ep => `<div class="ep-row">
-          <span class="ep-name">${escapeHtml(ep.episode)}</span>
-          <span class="ep-date">${formatDate(ep.date)}</span>
-        </div>`).join('')}
-      </div>
-    </div>`;
-  }
-
-  html += '</div>';
-  document.getElementById('modal-content').innerHTML = html;
-  document.getElementById('modal-overlay').classList.add('open');
-
-  // Load poster & overview from TMDB
-  fetchTMDB(name, 'tv').then(data => {
-    if (!data) return;
-    const ph = document.getElementById(posterId);
-    if (ph && data.poster_path) {
-      ph.outerHTML = `<img class="modal-poster" src="https://image.tmdb.org/t/p/w154${data.poster_path}" alt="${escapeAttr(name)}">`;
-    }
-    const ov = document.getElementById('tmdb-overview-' + hashStr(name));
-    if (ov) ov.textContent = data.overview || '';
-  });
-}
-
-function openFilmModal(title, date) {
-  const posterId = 'mp-' + hashStr(title);
-  const html = `<div class="modal-header">
-    <div class="modal-poster-ph" id="${posterId}">🎬</div>
-    <div class="modal-title-wrap">
-      <div class="modal-title">${escapeHtml(title)}</div>
-      <div class="modal-badges"><span class="badge badge-date">Vu le ${date}</span></div>
-      <div class="modal-overview" id="tmdb-overview-${hashStr(title)}"><span class="loading"><span class="spinner"></span>Chargement…</span></div>
-    </div>
-  </div>
-  <div class="modal-body"><p style="color:var(--muted);font-size:13px">Film • Vu le ${date}</p></div>`;
-  
-  document.getElementById('modal-content').innerHTML = html;
-  document.getElementById('modal-overlay').classList.add('open');
-
-  fetchTMDB(title, 'movie').then(data => {
-    if (!data) return;
-    const ph = document.getElementById(posterId);
-    if (ph && data.poster_path) {
-      ph.outerHTML = `<img class="modal-poster" src="https://image.tmdb.org/t/p/w154${data.poster_path}" alt="${escapeAttr(title)}">`;
-    }
-    const ov = document.getElementById('tmdb-overview-' + hashStr(title));
-    if (ov) ov.textContent = data.overview || 'Aucun synopsis disponible.';
-  });
-}
-
-document.getElementById('modal-close').onclick = () => document.getElementById('modal-overlay').classList.remove('open');
-document.getElementById('modal-overlay').onclick = e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); };
-
-// ── TMDB ──────────────────────────────────────────────
-async function fetchTMDB(title, type) {
-  const key = type + ':' + title;
-  if (tmdbCache[key] !== undefined) return tmdbCache[key];
-  
-  // Clean title for search
-  const clean = title.replace(/\s*:\s*saison\s*\d+.*/i, '').replace(/\s*\(.*\)$/, '').trim();
-  
-  try {
-    const url = `https://api.themoviedb.org/3/search/${type}?api_key=${TMDB_KEY}&query=${encodeURIComponent(clean)}&language=fr-FR`;
-    const r = await fetch(url);
-    const d = await r.json();
-    const result = d.results?.[0] || null;
-    tmdbCache[key] = result;
-    return result;
-  } catch {
-    tmdbCache[key] = null;
-    return null;
-  }
-}
-
-async function loadPoster(el, name, type) {
-  const data = await fetchTMDB(name, type);
-  if (!data?.poster_path) return;
-  const img = document.createElement('img');
-  img.className = 'card-poster';
-  img.src = `https://image.tmdb.org/t/p/w300${data.poster_path}`;
-  img.alt = name;
-  img.loading = 'lazy';
-  img.onload = () => el.replaceWith(img);
-}
-
-// ── UPLOAD ────────────────────────────────────────────
-document.getElementById('file-input').addEventListener('change', e => {
-  const f = e.target.files[0];
-  if (f) readFile(f);
-});
-
-const dropArea = document.getElementById('drop-area');
-dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('drag-over'); });
-dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
-dropArea.addEventListener('drop', e => {
-  e.preventDefault();
-  dropArea.classList.remove('drag-over');
-  const f = e.dataTransfer.files[0];
-  if (f) readFile(f);
-});
-
-function readFile(f) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    const parsed = parseCSV(e.target.result);
-    if (parsed.length > 0) {
-      saveToStorage(parsed);
-      processData(parsed);
-    }
-  };
-  reader.readAsText(f, 'UTF-8');
-}
-
-// ── EVENTS ────────────────────────────────────────────
-document.querySelectorAll('.tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    renderTab(t.dataset.tab);
-  });
-});
-
-document.querySelectorAll('[data-sort]').forEach(b => {
-  b.addEventListener('click', () => {
-    document.querySelectorAll('[data-sort]').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
-    currentSort = b.dataset.sort;
-    renderTab();
-  });
-});
-
-document.querySelectorAll('[data-view]').forEach(b => {
-  b.addEventListener('click', () => {
-    document.querySelectorAll('[data-view]').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
-    currentView = b.dataset.view;
-    renderTab();
-  });
-});
-
-document.getElementById('year-filter').addEventListener('change', e => {
-  currentYear = e.target.value;
-  renderTab();
-});
-
-let searchTimer;
-document.getElementById('search').addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(renderTab, 200);
-});
-
-// ── UTILS ─────────────────────────────────────────────
-function escapeHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function escapeAttr(s) {
-  return s.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-}
-function hashStr(s) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
-  return Math.abs(h).toString(36);
-}
-
-// ── SPLASH ───────────────────────────────────────────
-const STORAGE_KEY = 'nethistory_v2';
-const STORAGE_INFO_KEY = 'nethistory_v2_info';
-
-function hideSplash() {
-  const splash = document.getElementById('splash');
-  if (!splash) return;
-  splash.classList.add('hide');
-  setTimeout(() => { splash.style.display = 'none'; }, 700);
-}
-
-function saveToStorage(raw) {
-  try {
-    // Stocker version compacte : seulement raw title + date string pour économiser de la place
-    const compact = raw.map(r => ({ r: r.raw, d: r.date.getTime(), y: r.year, m: r.month }));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(compact));
-    const years = [...new Set(raw.map(r => r.year))].sort();
-    const info = raw.length.toLocaleString('fr') + ' visions · ' + years[0] + '–' + years[years.length-1];
-    localStorage.setItem(STORAGE_INFO_KEY, info);
-    return true;
-  } catch(e) {
-    console.warn('localStorage quota:', e);
-    return false;
-  }
-}
-
-function loadFromStorage() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const compact = JSON.parse(raw);
-    return compact.map(r => ({
-      raw: r.r,
-      date: new Date(r.d),
-      year: r.y,
-      month: r.m
-    }));
-  } catch(e) {
-    console.warn('localStorage read error:', e);
-    return null;
-  }
-}
-
-function showSplashActions(hasData) {
-  const wrap = document.getElementById('splash-bar-wrap');
-  const actions = document.getElementById('splash-actions');
-  if (wrap) wrap.style.display = 'none';
-
-  if (hasData) {
-    const info = localStorage.getItem(STORAGE_INFO_KEY) || '';
-    actions.innerHTML =
-      '<div class="splash-data-info">' + info + '</div>' +
-      '<button class="splash-btn splash-btn-primary" id="btn-enter">' +
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>' +
-        ' Entrer' +
-      '</button>' +
-      '<button class="splash-btn splash-btn-secondary" id="btn-new-csv">' +
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
-        ' Nouveau CSV' +
-      '</button>';
-
-    document.getElementById('btn-enter').onclick = function() {
-      const restored = loadFromStorage();
-      if (!restored) { alert('Erreur de lecture, veuillez réimporter le CSV.'); return; }
-      hideSplash();
-      processData(restored);
-    };
-
-    document.getElementById('btn-new-csv').onclick = function() {
-      hideSplash();
-      // upload zone visible par défaut
-    };
-
-  } else {
-    actions.innerHTML =
-      '<div class="splash-data-info">Aucun historique enregistré</div>' +
-      '<button class="splash-btn splash-btn-primary" id="btn-import-splash">' +
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
-        ' Importer mon historique' +
-      '</button>' +
-      '<a class="splash-btn splash-btn-secondary" href="https://www.netflix.com/account/getmyinfo" target="_blank">' +
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-        ' Télécharger depuis Netflix' +
-      '</a>';
-
-    document.getElementById('btn-import-splash').onclick = function() {
-      hideSplash();
-      setTimeout(function() { document.getElementById('file-input').click(); }, 300);
-    };
-  }
-}
-
-window.addEventListener('load', function() {
-  const hasData = !!localStorage.getItem(STORAGE_KEY);
-  setTimeout(function() { showSplashActions(hasData); }, 2000);
-});
-
-// ── SERVICE WORKER ────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(r => console.log('SW registered:', r.scope))
-      .catch(e => console.warn('SW error:', e));
-  });
-}
-</script>
-</body>
-</html>

@@ -1439,7 +1439,7 @@ function hashStr(s){let h=0;for(let i=0;i<s.length;i++)h=(Math.imul(31,h)+s.char
 // ── SERVICE WORKER ────────────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('/netflix-history/sw.js')
+    navigator.serviceWorker.register('./sw.js')
       .then(r=>console.log('SW:',r.scope))
       .catch(e=>console.warn('SW error:',e));
   });
